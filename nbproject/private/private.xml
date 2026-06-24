@@ -2,6 +2,11 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group/>
+        <group>
+            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/World.java</file>
+            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/Entity.java</file>
+            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/GamePanel.java</file>
+            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/res/maps/map1tst.txt</file>
+        </group>
     </open-files>
 </project-private>
