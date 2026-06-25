@@ -3,10 +3,9 @@ package jogo;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-
+import java.io.File;
+import java.util.Arrays;
+import java.util.Scanner;
 /**
  * Junta o mapa de tiles com o jogador: cria os dois, atualiza a lógica e
  * desenha tudo na ordem certa (chão -> jogador).
@@ -87,7 +86,17 @@ class TileManager {
         carregarImagensDosTiles();
 
         // IMPORTANTE: confira se a pasta de mapas é "/maps/" ou "/res/maps/" no seu projeto
-        this.mapaMatriz = MapLoader.carregarMapa("/maps/map1tst.txt", maxMundoCol, maxMundoLin);
+        try {
+            this.mapaMatriz = MapLoader.carregarMapa("src/maps/map1tst.txt");
+            this.maxMundoCol = this.mapaMatriz.length;
+            this.maxMundoLin = this.mapaMatriz[0].length;
+        } catch (Exception e) {
+            System.out.println("ERRO AO CARREGAR MAPA, UTILIZANDO MAPA DE EMERGÊNCIA");
+            this.mapaMatriz = MapLoader.gerarMapaEmergencia(maxCol, maxLin);
+            this.maxMundoCol = maxCol;
+            this.maxMundoLin = maxLin;
+        }
+        
     }
 
     private void carregarImagensDosTiles() {
@@ -96,6 +105,31 @@ class TileManager {
 
         tiposDeTile[1] = new Tile();
         tiposDeTile[1].colidivel = true; // Parede (sólida)
+        
+        // Placeholders
+        tiposDeTile[2] = new Tile();
+        tiposDeTile[2].colidivel = true;
+        
+        tiposDeTile[3] = new Tile();
+        tiposDeTile[3].colidivel = true;
+        
+        tiposDeTile[4] = new Tile();
+        tiposDeTile[4].colidivel = true;
+        
+        tiposDeTile[5] = new Tile();
+        tiposDeTile[5].colidivel = true;
+        
+        tiposDeTile[6] = new Tile();
+        tiposDeTile[6].colidivel = true;
+        
+        tiposDeTile[7] = new Tile();
+        tiposDeTile[7].colidivel = true;
+        
+        tiposDeTile[8] = new Tile();
+        tiposDeTile[8].colidivel = true;
+        
+        tiposDeTile[9] = new Tile();
+        tiposDeTile[9].colidivel = true;
     }
 
     void draw(Graphics2D g2v, Camera camera) {
@@ -134,61 +168,28 @@ class Tile {
 }
 
 /** Lê a matriz do mapa de um .txt em /maps/; se falhar, gera uma arena de emergência. */
-/** Lê a matriz do mapa de um .txt em /maps/; se falhar, gera uma arena de emergência. */
 class MapLoader {
 
-    static int[][] carregarMapa(String caminho, int maxCol, int maxLin) {
+    static int[][] carregarMapa(String caminho) throws Exception {
+        Scanner sc = new Scanner(new File(caminho));
+        int maxLin = sc.nextInt();
+        int maxCol = sc.nextInt();
+        
         int[][] matrizGerada = new int[maxCol][maxLin];
 
-        try {
-            InputStream is = MapLoader.class.getResourceAsStream(caminho);
-
-            if (is == null) {
-                System.out.println("[ERRO CRÍTICO] Ficheiro de mapa não encontrado em: " + caminho);
-                return gerarMapaEmergencia(maxCol, maxLin);
+        for (int lin = 0; lin < maxLin; lin++) {
+            for (int col = 0; col < maxCol; col++) {
+                matrizGerada[col][lin] = sc.nextInt();
             }
-
-            BufferedReader br = new BufferedReader(new InputStreamReader(is));
-
-            int col = 0;
-            int lin = 0;
-
-            // O ciclo agora é focado apenas em preencher as linhas necessárias
-            while (lin < maxLin) {
-                String linhaTexto = br.readLine();
-                if (linhaTexto == null) break;
-
-                linhaTexto = linhaTexto.trim();
-                if (linhaTexto.isEmpty()) continue;
-
-                String[] numeros = linhaTexto.split("\\s+");
-
-                // Usamos 'i' para o array de texto e 'col' para a matriz. Independentes!
-                for (int i = 0; i < numeros.length && col < maxCol; i++) {
-                    matrizGerada[col][lin] = Integer.parseInt(numeros[i]);
-                    col++;
-                }
-
-                // Quando a coluna atinge o limite do mapa, mudamos de linha
-                if (col >= maxCol) {
-                    col = 0;
-                    lin++;
-                }
-            }
-            br.close();
-            System.out.println("[SUCESSO] Mapa '" + caminho + "' carregado com sucesso!");
-
-        } catch (Exception e) {
-            System.out.println("[ERRO] Falha ao processar a leitura da matriz. Gerando arena padrão.");
-            e.printStackTrace(); // Mostrará no terminal onde a formatação do .txt falhou
-            return gerarMapaEmergencia(maxCol, maxLin);
         }
+        
+        sc.close();
 
         return matrizGerada;
     }
 
     // Cria uma arena com bordas sólidas para sair na porrada
-    private static int[][] gerarMapaEmergencia(int maxCol, int maxLin) {
+    static int[][] gerarMapaEmergencia(int maxCol, int maxLin) {
         int[][] emergencia = new int[maxCol][maxLin];
         for (int r = 0; r < maxLin; r++) {
             for (int c = 0; c < maxCol; c++) {
@@ -224,7 +225,7 @@ class Collision {
         entidade.colisaoLigada = false;
 
         switch (entidade.direcao) {
-            case "cima":
+            case 'c':
                 entidadeTopoLin = (int) ((entidadeMundoTopoY - (entidade.velocidade * Time.deltaTime)) / Config.TAMANHO_TILE);
                 if (entidadeTopoLin < 0) {
                     entidade.colisaoLigada = true;
@@ -237,7 +238,7 @@ class Collision {
                 }
                 break;
 
-            case "baixo":
+            case 'b':
                 entidadeBaseLin = (int) ((entidadeMundoBaseY + (entidade.velocidade * Time.deltaTime)) / Config.TAMANHO_TILE);
                 if (entidadeBaseLin >= tileM.maxMundoLin) {
                     entidade.colisaoLigada = true;
@@ -250,7 +251,7 @@ class Collision {
                 }
                 break;
 
-            case "esquerda":
+            case 'e':
                 entidadeEsqCol = (int) ((entidadeMundoEsqX - (entidade.velocidade * Time.deltaTime)) / Config.TAMANHO_TILE);
                 if (entidadeEsqCol < 0) {
                     entidade.colisaoLigada = true;
@@ -263,7 +264,7 @@ class Collision {
                 }
                 break;
 
-            case "direita":
+            case 'd':
                 entidadeDirCol = (int) ((entidadeMundoDirX + (entidade.velocidade * Time.deltaTime)) / Config.TAMANHO_TILE);
                 if (entidadeDirCol >= tileM.maxMundoCol) {
                     entidade.colisaoLigada = true;

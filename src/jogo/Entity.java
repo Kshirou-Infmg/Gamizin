@@ -10,7 +10,7 @@
             double x, y;
             int largura, altura;
             int velocidade;
-            String direcao = "parado";
+            char direcao = 'p';
             boolean colisaoLigada = false;
 
             Rectangle hitbox;
@@ -48,14 +48,14 @@
                 double moveX = 0;
                 double moveY = 0;
 
-                if (Input.paraCima())     { direcao = "cima";     moveY -= 1; }
-                if (Input.paraBaixo())    { direcao = "baixo";    moveY += 1; }
-                if (Input.paraEsquerda()) { direcao = "esquerda"; moveX -= 1; }
-                if (Input.paraDireita())  { direcao = "direita";  moveX += 1; }
+                if (Input.paraCima())     { direcao = 'c';     moveY -= 1; }
+                if (Input.paraBaixo())    { direcao = 'b';    moveY += 1; }
+                if (Input.paraEsquerda()) { direcao = 'e'; moveX -= 1; }
+                if (Input.paraDireita())  { direcao = 'd';  moveX += 1; }
 
                 // Se nenhuma tecla for pressionada, fica parado
                 if (!Input.paraCima() && !Input.paraBaixo() && !Input.paraEsquerda() && !Input.paraDireita()) {
-                    direcao = "parado";
+                    direcao = 'p';
                 }
 
                 // Normaliza o vetor de movimento, pra não andar mais rápido na diagonal
@@ -66,7 +66,7 @@
                 }
 
                 if (moveY != 0) {
-                    direcao = moveY < 0 ? "cima" : "baixo";
+                    direcao = moveY < 0 ? 'c' : 'b';
                     Collision.checarTile(this, tileM);
                     if (!colisaoLigada) {
                         y += moveY * velocidade * Time.deltaTime;
@@ -74,7 +74,7 @@
                 }
 
                 if (moveX != 0) {
-                    direcao = moveX < 0 ? "esquerda" : "direita";
+                    direcao = moveX < 0 ? 'e' : 'd';
                     Collision.checarTile(this, tileM);
                     if (!colisaoLigada) {
                         x += moveX * velocidade * Time.deltaTime;
