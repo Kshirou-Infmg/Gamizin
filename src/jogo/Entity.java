@@ -39,8 +39,7 @@
                 this.tileM = tileM;
 
                 // Ajuste de hitbox do player (um pouco menor que o sprite)
-                // menor o caralho
-                this.hitbox = new Rectangle(0, 0, largura, altura);
+                this.hitbox = new Rectangle(2, 2, largura-4, altura-4);
             }
 
             @Override

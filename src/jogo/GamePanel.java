@@ -175,8 +175,10 @@ class Camera {
         this.y = alvoY + (alvoAltura / 2) - (alturaTela / 2);
 
         // Usando a API Math do Java em vez do método limitar()
+        /* temporariamente desabilitado
         this.x = Math.max(0, Math.min(this.x, larguraMaximaMapa - larguraTela));
         this.y = Math.max(0, Math.min(this.y, alturaMaximaMapa - alturaTela));
+        */
     }
 }
 
@@ -199,6 +201,7 @@ class Input {
     static boolean paraBaixo() { return teclado.downPressed; }
     static boolean paraEsquerda() { return teclado.leftPressed; }
     static boolean paraDireita() { return teclado.rightPressed; }
+    
 
     static int getMouseX() { return MouseHandler.mouseX; }
     static int getMouseY() { return MouseHandler.mouseY; }
