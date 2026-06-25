@@ -28,6 +28,9 @@ public class GamePanel extends JPanel implements Runnable {
         this.setBackground(Color.BLACK);
         this.setDoubleBuffered(true);
         this.setFocusable(true);
+        
+        // CORREÇÃO 1: Inicializar o menu para ele não ser nulo
+        this.instancia_menu_pause = new menuPause(); 
     }
 
     public void inicializarJogo() {
@@ -74,7 +77,6 @@ public class GamePanel extends JPanel implements Runnable {
 
     @Override
     protected void paintComponent(Graphics g) {
-        menuPause menu = new menuPause();
         super.paintComponent(g);
         Graphics2D g2v = (Graphics2D) g;
 
