@@ -4,6 +4,16 @@
  */
 package menus;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
+import javax.swing.KeyStroke;
+import javax.swing.WindowConstants;
+
+import jogo.GamePanel;
 /**
  *
  * @author bogus
@@ -15,8 +25,29 @@ public class menuPause extends javax.swing.JFrame {
     /**
      * Creates new form menuPause
      */
-    public menuPause() {
+    
+    private GamePanel game_panel;
+    
+    public menuPause(GamePanel game_panel) {
         initComponents();
+        this.game_panel = game_panel;
+        
+        setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        
+        getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "despausar");
+        
+        getRootPane().getActionMap().put("despausar", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                game_panel.despausar();
+            }
+        });
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                game_panel.despausar();
+            }
+        });
     }
 
     /**
@@ -32,7 +63,7 @@ public class menuPause extends javax.swing.JFrame {
         jLabel1 = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
         jPanel1.setBackground(new java.awt.Color(0, 0, 204));
         jPanel1.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
@@ -61,6 +92,11 @@ public class menuPause extends javax.swing.JFrame {
         );
 
         jPanel2.setBorder(javax.swing.BorderFactory.createCompoundBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED), javax.swing.BorderFactory.createEtchedBorder()));
+        jPanel2.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusLost(java.awt.event.FocusEvent evt) {
+                close(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -98,6 +134,9 @@ public class menuPause extends javax.swing.JFrame {
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
 
+    private void close(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_close
+    }//GEN-LAST:event_close
+
     /**
      * @param args the command line arguments
      */
@@ -120,7 +159,7 @@ public class menuPause extends javax.swing.JFrame {
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new menuPause().setVisible(true));
+        //java.awt.EventQueue.invokeLater(() -> new menuPause().setVisible(true));
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

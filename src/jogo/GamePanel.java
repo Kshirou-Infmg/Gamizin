@@ -11,6 +11,8 @@ import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 import menus.menuPause;
 
@@ -30,7 +32,23 @@ public class GamePanel extends JPanel implements Runnable {
         this.setFocusable(true);
         
         // CORREÇÃO 1: Inicializar o menu para ele não ser nulo
-        this.instancia_menu_pause = new menuPause(); 
+        this.instancia_menu_pause = new menuPause(this); 
+    }
+    
+    public void pausar() {
+        pausado = true;
+        instancia_menu_pause.setVisible(true);
+        instancia_menu_pause.toFront();
+        instancia_menu_pause.requestFocus();
+    }
+    
+    public void despausar() {
+        pausado = false;
+        instancia_menu_pause.setVisible(false);
+    }
+    
+    public boolean estaPausado() {
+        return pausado;
     }
 
     public void inicializarJogo() {
@@ -54,13 +72,10 @@ public class GamePanel extends JPanel implements Runnable {
 
             // LÓGICA DE PAUSE: Verifica se a tecla foi pressionada uma única vez
             if (Input.foiPressionadoPause()) {
-                pausado = !pausado;
                 if (pausado) {
-                    instancia_menu_pause.setVisible(true);
-                    instancia_menu_pause.toFront();
-                    instancia_menu_pause.requestFocus();
+                    despausar();
                 } else {
-                    instancia_menu_pause.setVisible(false);
+                    pausar();
                 }
             }
 
@@ -115,12 +130,18 @@ public class GamePanel extends JPanel implements Runnable {
         janela.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         janela.setResizable(false);
         janela.setTitle(Config.TITULO);
-        
-        // Inicializar menu de pause
-        menuPause menu = new menuPause();
 
         GamePanel gamePanel = new GamePanel();
         janela.add(gamePanel);
+        
+        janela.addWindowFocusListener(new WindowAdapter() {
+            @Override
+            public void windowGainedFocus(WindowEvent e) {
+                if (gamePanel.estaPausado()) {
+                    gamePanel.despausar();
+                }
+            }
+        });
 
         janela.pack();
         janela.setLocationRelativeTo(null);
