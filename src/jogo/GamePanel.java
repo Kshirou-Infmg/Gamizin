@@ -15,10 +15,11 @@ import java.awt.event.MouseMotionListener;
 public class GamePanel extends JPanel implements Runnable {
 
     private Thread gameThread;
-
     private volatile boolean rodando = false; 
-
     private World mundo;
+    
+    // NOVA VARIÁVEL: Controla o estado de pause do jogo
+    private boolean pausado = false;
 
     public GamePanel() {
         this.setPreferredSize(new Dimension(Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL));
@@ -41,15 +42,21 @@ public class GamePanel extends JPanel implements Runnable {
 
     @Override
     public void run() {
-        // Zera o cronômetro antes do loop começar
         Time.update();
 
         while (rodando) {
             Time.update();
 
-            if (mundo != null) {
+            // LÓGICA DE PAUSE: Verifica se a tecla foi pressionada uma única vez
+            if (Input.foiPressionadoPause()) {
+                pausado = !pausado; // Inverte o estado (pausa se estiver rodando, roda se estiver pausado)
+            }
+
+            // O mundo só atualiza a física/movimento se NÃO estiver pausado
+            if (!pausado && mundo != null) {
                 mundo.update();
             }
+            
             repaint();
 
             Time.sync();
@@ -68,14 +75,32 @@ public class GamePanel extends JPanel implements Runnable {
         g2v.setColor(Color.WHITE);
         g2v.drawString("FPS: " + Time.fps, 10, 20);
 
-        // FORÇA a sincronização gráfica do Sistema Operacional (Evita stuttering no Swing)
+        // DESENHO DO PAUSE: Renderiza uma tela semi-transparente por cima de tudo
+        if (pausado) {
+            // Cria um retângulo preto com 150 de transparência (Alpha de 0 a 255)
+            g2v.setColor(new Color(0, 0, 0, 150)); 
+            g2v.fillRect(0, 0, Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL);
+
+            // Desenha o texto "PAUSADO" bem no centro da tela
+            g2v.setColor(Color.WHITE);
+            g2v.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 50));
+            String texto = "PAUSADO";
+            
+            // Calcula a largura do texto para centralizá-lo matematicamente
+            int larguraTexto = g2v.getFontMetrics().stringWidth(texto);
+            int x = (Config.LARGURA_VIRTUAL - larguraTexto) / 2;
+            int y = Config.ALTURA_VIRTUAL / 2;
+            
+            g2v.drawString(texto, x, y);
+        }
+
         java.awt.Toolkit.getDefaultToolkit().sync(); 
     }
 
-    // Ponto de entrada do jogo
+    // Ponto de entrada do jogo (main mantido igual ao seu)
     public static void main(String[] args) {
+        // ... (seu código main permanece igual)
         JFrame janela = new JFrame();
-
         janela.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         janela.setResizable(false);
         janela.setTitle(Config.TITULO);
@@ -202,8 +227,16 @@ class Input {
     static boolean paraEsquerda() { return teclado.leftPressed; }
     static boolean paraDireita() { return teclado.rightPressed; }
     
-
+    static boolean foiPressionadoPause() {
+        if (teclado.pausePressed && !teclado.pauseTratado) {
+            teclado.pauseTratado = true; // Trava a tecla
+            return true;
+        }
+        return false;
+    }
+    
     static int getMouseX() { return MouseHandler.mouseX; }
+    // ...
     static int getMouseY() { return MouseHandler.mouseY; }
     static boolean esquerdoClicado() { return MouseHandler.cliqueEsquerdoPressed; }
 
@@ -213,7 +246,10 @@ class Input {
         boolean confirmPressed; 
         boolean cancelPressed;  
         boolean menuPressed;    
-        boolean pausePressed;   
+        boolean pausePressed;
+        
+        // NOVA VARIÁVEL: A trava do botão
+        boolean pauseTratado = false;   
 
         @Override
         public void keyTyped(KeyEvent e) {}
@@ -228,7 +264,6 @@ class Input {
             atualizarTeclas(e.getKeyCode(), false);
         }
 
-        // Usando Switch Expressions (JDK 14+) para código mais limpo
         private void atualizarTeclas(int code, boolean pressionado) {
             switch (code) {
                 case KeyEvent.VK_UP, KeyEvent.VK_W -> upPressed = pressionado;
@@ -238,7 +273,13 @@ class Input {
                 case KeyEvent.VK_Z, KeyEvent.VK_ENTER -> confirmPressed = pressionado;
                 case KeyEvent.VK_X, KeyEvent.VK_SHIFT -> cancelPressed = pressionado;
                 case KeyEvent.VK_C, KeyEvent.VK_CONTROL -> menuPressed = pressionado;
-                case KeyEvent.VK_ESCAPE -> pausePressed = pressionado;
+                case KeyEvent.VK_ESCAPE -> {
+                    pausePressed = pressionado;
+                    // Se o jogador soltou a tecla, destrava para o próximo clique
+                    if (!pressionado) {
+                        pauseTratado = false;
+                    }
+                }
             }
         }
     }
