@@ -12,14 +12,16 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 
+import menus.menuPause;
+
 public class GamePanel extends JPanel implements Runnable {
 
     private Thread gameThread;
     private volatile boolean rodando = false; 
     private World mundo;
-    
-    // NOVA VARIÁVEL: Controla o estado de pause do jogo
     private boolean pausado = false;
+    
+    private menuPause instancia_menu_pause;
 
     public GamePanel() {
         this.setPreferredSize(new Dimension(Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL));
@@ -49,7 +51,14 @@ public class GamePanel extends JPanel implements Runnable {
 
             // LÓGICA DE PAUSE: Verifica se a tecla foi pressionada uma única vez
             if (Input.foiPressionadoPause()) {
-                pausado = !pausado; // Inverte o estado (pausa se estiver rodando, roda se estiver pausado)
+                pausado = !pausado;
+                if (pausado) {
+                    instancia_menu_pause.setVisible(true);
+                    instancia_menu_pause.toFront();
+                    instancia_menu_pause.requestFocus();
+                } else {
+                    instancia_menu_pause.setVisible(false);
+                }
             }
 
             // O mundo só atualiza a física/movimento se NÃO estiver pausado
@@ -65,6 +74,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     @Override
     protected void paintComponent(Graphics g) {
+        menuPause menu = new menuPause();
         super.paintComponent(g);
         Graphics2D g2v = (Graphics2D) g;
 
@@ -97,13 +107,15 @@ public class GamePanel extends JPanel implements Runnable {
         java.awt.Toolkit.getDefaultToolkit().sync(); 
     }
 
-    // Ponto de entrada do jogo (main mantido igual ao seu)
     public static void main(String[] args) {
-        // ... (seu código main permanece igual)
+
         JFrame janela = new JFrame();
         janela.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         janela.setResizable(false);
         janela.setTitle(Config.TITULO);
+        
+        // Inicializar menu de pause
+        menuPause menu = new menuPause();
 
         GamePanel gamePanel = new GamePanel();
         janela.add(gamePanel);
@@ -119,10 +131,11 @@ public class GamePanel extends JPanel implements Runnable {
 
 
 class Config {
+    static final int TODOS = 120;
     static final int LARGURA_VIRTUAL = 800;
     static final int ALTURA_VIRTUAL = 600;
-    static final int FPS = 120;
-    static final String TITULO = "Nosso Jogo do Zero v1.0";
+    static final int FPS = TODOS;
+    static final String TITULO = "Apenas um Jogo";
     static final int TAMANHO_TILE = 48; // Tamanho padrão dos blocos do mapa (48x48 pixels)
 }
 
