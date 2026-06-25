@@ -39,7 +39,8 @@
                 this.tileM = tileM;
 
                 // Ajuste de hitbox do player (um pouco menor que o sprite)
-                this.hitbox = new Rectangle(8, 16, 32, 32);
+                // menor o caralho
+                this.hitbox = new Rectangle(0, 0, largura, altura);
             }
 
             @Override
@@ -84,10 +85,11 @@
             @Override
             void draw(Graphics2D g2v) {
                 // Cubo de teste no lugar do sprite
-                g2v.setColor(new Color(50, 205, 50));
+                g2v.setColor(new Color(205, 50, 50));
                 g2v.fillRect((int) x, (int) y, largura, altura);
 
                 // Olhos
+                /*
                 g2v.setColor(Color.WHITE);
                 g2v.fillRect((int) x + 10, (int) y + 12, 8, 12);
                 g2v.fillRect((int) x + 28, (int) y + 12, 8, 12);
@@ -95,5 +97,6 @@
                 g2v.setColor(Color.BLACK);
                 g2v.fillRect((int) x + 12, (int) y + 16, 5, 6);
                 g2v.fillRect((int) x + 30, (int) y + 16, 5, 6);
+                *///não gosto dos olhos dele
             }
         }
