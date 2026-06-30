@@ -1,101 +1,434 @@
-        package jogo;
+package jogo;
 
-        import java.awt.Color;
-        import java.awt.Graphics2D;
-        import java.awt.Rectangle;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
 
-        /** Tudo que pode existir e se mover dentro do mundo (jogador, inimigos, etc.). */
-        abstract class Entity {
+/** Tudo que pode existir e se mover dentro do mundo (jogador, inimigos, etc.). */
+abstract class Entity {
 
-            double x, y;
-            int largura, altura;
-            int velocidade;
-            char direcao = 'p';
-            boolean colisaoLigada = false;
+    protected double x, y;
+    protected int largura, altura;
+    protected int velocidade;
+    protected char direcao = 'p';
+    protected boolean colisaoLigada = false;
 
-            Rectangle hitbox;
+    protected Rectangle hitbox;
 
-            Entity(int x, int y, int largura, int altura, int velocidade) {
-                this.x = x;
-                this.y = y;
-                this.largura = largura;
-                this.altura = altura;
-                this.velocidade = velocidade;
+    public Entity(int x, int y, int largura, int altura, int velocidade) {
+        this.x = x;
+        this.y = y;
+        this.largura = largura;
+        this.altura = altura;
+        this.velocidade = velocidade;
+        this.hitbox = new Rectangle(0, 0, largura, altura);
+    }
 
-                this.hitbox = new Rectangle(0, 0, largura, altura);
-            }
+    abstract void update();
+    abstract void draw(Graphics2D g2v);
+}
 
-            abstract void update();
-            abstract void draw(Graphics2D g2v);
+
+// PLAYER
+class Player extends Entity {
+
+    private TileManager tileM;
+
+    Player(int x, int y, TileManager tileM) {
+        super(x, y, 48, 48, 250);
+        this.tileM = tileM;
+        this.hitbox = new Rectangle(2, 2, largura - 4, altura - 4);
+    }
+
+    @Override
+    void update() {
+        double moveX = 0;
+        double moveY = 0;
+
+        if (Input.paraCima())     { direcao = 'c'; moveY -= 1; }
+        if (Input.paraBaixo())    { direcao = 'b'; moveY += 1; }
+        if (Input.paraEsquerda()) { direcao = 'e'; moveX -= 1; }
+        if (Input.paraDireita())  { direcao = 'd'; moveX += 1; }
+
+        if (!Input.paraCima() && !Input.paraBaixo() && !Input.paraEsquerda() && !Input.paraDireita()) {
+            direcao = 'p';
         }
 
-        /** O personagem controlado pelo jogador. */
-        class Player extends Entity {
+        double comprimento = Math.sqrt(moveX * moveX + moveY * moveY);
+        if (comprimento > 1) { moveX /= comprimento; moveY /= comprimento; }
 
-            private TileManager tileM;
+        if (moveY != 0) {
+            direcao = moveY < 0 ? 'c' : 'b';
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) y += moveY * velocidade * Time.deltaTime;
+        }
+        if (moveX != 0) {
+            direcao = moveX < 0 ? 'e' : 'd';
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) x += moveX * velocidade * Time.deltaTime;
+        }
+    }
 
-            Player(int x, int y, TileManager tileM) {
-                super(x, y, 48, 48, 250); // Velocidade de 250 pixels por segundo
-                this.tileM = tileM;
+    @Override
+    void draw(Graphics2D g2v) {
+        g2v.setColor(new Color(205, 50, 50));
+        g2v.fillRect((int) x, (int) y, largura, altura);
+    }
+}
 
-                // Ajuste de hitbox do player (um pouco menor que o sprite)
-                this.hitbox = new Rectangle(2, 2, largura-4, altura-4);
-            }
+// FOLLOWER — IA INTELIGENTE com pathfinding A*
+class Follower extends Entity {
 
-            @Override
-            void update() {
-                double moveX = 0;
-                double moveY = 0;
+    private Player alvo;
+    private TileManager tileM;
 
-                if (Input.paraCima())     { direcao = 'c';     moveY -= 1; }
-                if (Input.paraBaixo())    { direcao = 'b';    moveY += 1; }
-                if (Input.paraEsquerda()) { direcao = 'e'; moveX -= 1; }
-                if (Input.paraDireita())  { direcao = 'd';  moveX += 1; }
+    private List<int[]> caminho = new ArrayList<>();
+    private double timerRecalculo = 0;
+    private static final double INTERVALO_RECALCULO = 0.35;
+    private static final double LIMIAR_WAYPOINT    = Config.TAMANHO_TILE * 0.45;
 
-                // Se nenhuma tecla for pressionada, fica parado
-                if (!Input.paraCima() && !Input.paraBaixo() && !Input.paraEsquerda() && !Input.paraDireita()) {
-                    direcao = 'p';
-                }
+    private int alvoTileXAnterior = -1;
+    private int alvoTileYAnterior = -1;
 
-                // Normaliza o vetor de movimento, pra não andar mais rápido na diagonal
-                double comprimento = Math.sqrt(moveX * moveX + moveY * moveY);
-                if (comprimento > 1) {
-                    moveX /= comprimento;
-                    moveY /= comprimento;
-                }
+    public Follower(int x, int y, TileManager tileM, Player alvo) {
+        super(x, y, 48, 48, 140);
+        this.tileM = tileM;
+        this.alvo  = alvo;
+        this.hitbox = new Rectangle(6, 6, largura - 12, altura - 12);
+    }
 
-                if (moveY != 0) {
-                    direcao = moveY < 0 ? 'c' : 'b';
-                    Collision.checarTile(this, tileM);
-                    if (!colisaoLigada) {
-                        y += moveY * velocidade * Time.deltaTime;
-                    }
-                }
+    @Override
+    void update() {
+        timerRecalculo -= Time.deltaTime;
 
-                if (moveX != 0) {
-                    direcao = moveX < 0 ? 'e' : 'd';
-                    Collision.checarTile(this, tileM);
-                    if (!colisaoLigada) {
-                        x += moveX * velocidade * Time.deltaTime;
-                    }
-                }
-            }
+        int alvoTileX = (int)(alvo.x / Config.TAMANHO_TILE);
+        int alvoTileY = (int)(alvo.y / Config.TAMANHO_TILE);
 
-            @Override
-            void draw(Graphics2D g2v) {
-                // Cubo de teste no lugar do sprite
-                g2v.setColor(new Color(205, 50, 50));
-                g2v.fillRect((int) x, (int) y, largura, altura);
+        boolean alvoMoveu = (alvoTileX != alvoTileXAnterior || alvoTileY != alvoTileYAnterior);
+        if (timerRecalculo <= 0 || alvoMoveu) {
+            int meuCentroX = (int)((this.x + hitbox.x + hitbox.width  / 2.0) / Config.TAMANHO_TILE);
+            int meuCentroY = (int)((this.y + hitbox.y + hitbox.height / 2.0) / Config.TAMANHO_TILE);
+            caminho = AStar.encontrarCaminho(tileM, meuCentroX, meuCentroY, alvoTileX, alvoTileY);
+            timerRecalculo    = INTERVALO_RECALCULO;
+            alvoTileXAnterior = alvoTileX;
+            alvoTileYAnterior = alvoTileY;
+        }
 
-                // Olhos
-                /*
-                g2v.setColor(Color.WHITE);
-                g2v.fillRect((int) x + 10, (int) y + 12, 8, 12);
-                g2v.fillRect((int) x + 28, (int) y + 12, 8, 12);
+        seguirCaminho();
 
-                g2v.setColor(Color.BLACK);
-                g2v.fillRect((int) x + 12, (int) y + 16, 5, 6);
-                g2v.fillRect((int) x + 30, (int) y + 16, 5, 6);
-                *///não gosto dos olhos dele
+        double dx = alvo.x - this.x;
+        double dy = alvo.y - this.y;
+        direcao = (Math.abs(dx) > Math.abs(dy)) ? (dx < 0 ? 'e' : 'd') : (dy < 0 ? 'c' : 'b');
+    }
+
+    private void seguirCaminho() {
+        if (caminho == null || caminho.isEmpty()) { moverDireto(); return; }
+
+        while (!caminho.isEmpty()) {
+            int[] prox = caminho.get(0);
+            double wpX  = prox[0] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
+            double wpY  = prox[1] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
+            double meuX = this.x + largura / 2.0;
+            double meuY = this.y + altura  / 2.0;
+            if (Math.hypot(wpX - meuX, wpY - meuY) < LIMIAR_WAYPOINT) caminho.remove(0);
+            else break;
+        }
+        if (caminho.isEmpty()) return;
+
+        int[]  prox = caminho.get(0);
+        double wpX  = prox[0] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
+        double wpY  = prox[1] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
+        double meuX = this.x + largura / 2.0;
+        double meuY = this.y + altura  / 2.0;
+        double dx   = wpX - meuX;
+        double dy   = wpY - meuY;
+        double dist = Math.hypot(dx, dy);
+        if (dist < 1) return;
+
+        double moveX = dx / dist;
+        double moveY = dy / dist;
+
+        if (moveY != 0) {
+            this.direcao = moveY < 0 ? 'c' : 'b';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) y += moveY * velocidade * Time.deltaTime;
+        }
+        if (moveX != 0) {
+            this.direcao = moveX < 0 ? 'e' : 'd';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) x += moveX * velocidade * Time.deltaTime;
+        }
+    }
+
+    private void moverDireto() {
+        double dx   = alvo.x - this.x;
+        double dy   = alvo.y - this.y;
+        double dist = Math.hypot(dx, dy);
+        if (dist <= 12) return;
+        double moveX = dx / dist, moveY = dy / dist;
+        if (moveY != 0) {
+            this.direcao = moveY < 0 ? 'c' : 'b';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) y += moveY * velocidade * Time.deltaTime;
+        }
+        if (moveX != 0) {
+            this.direcao = moveX < 0 ? 'e' : 'd';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) x += moveX * velocidade * Time.deltaTime;
+        }
+    }
+
+    @Override
+    void draw(Graphics2D g2v) {
+        g2v.setColor(new Color(50, 205, 50));
+        g2v.fillRect((int) x, (int) y, largura, altura);
+    }
+}
+
+
+// PERSEGUIDOR — IA BURRA (abordagem direta + desvio aleatório)
+class Perseguidor extends Entity {
+
+    private Player alvo;
+    private TileManager tileM;
+
+    private char direcaoDesvio = 'p';
+    private double timerDesvio  = 0;
+
+    // Tempo (em segundos) que mantém um desvio antes de tentar outro
+    private static final double DURACAO_DESVIO_MIN = 0.4;
+    private static final double DURACAO_DESVIO_MAX = 0.9;
+
+    public Perseguidor(int x, int y, TileManager tileM, Player alvo) {
+        super(x, y, 48, 48, 105); // mais devagar que o Follower
+        this.tileM = tileM;
+        this.alvo  = alvo;
+        this.hitbox = new Rectangle(6, 6, largura - 12, altura - 12);
+    }
+
+    @Override
+    void update() {
+        timerDesvio -= Time.deltaTime;
+
+        double dx   = alvo.x - this.x;
+        double dy   = alvo.y - this.y;
+        double dist = Math.hypot(dx, dy);
+        if (dist <= 12) { direcao = 'p'; return; }
+
+        double moveX = dx / dist;
+        double moveY = dy / dist;
+
+        boolean bloqueadoY = false;
+        boolean bloqueadoX = false;
+
+        // Tenta mover no eixo Y
+        if (moveY != 0) {
+            this.direcao       = moveY < 0 ? 'c' : 'b';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) {
+                y += moveY * velocidade * Time.deltaTime;
+                // Se o eixo principal ficou livre, pode resetar o desvio
+                if (Math.abs(dy) >= Math.abs(dx)) direcaoDesvio = 'p';
+            } else {
+                bloqueadoY = true;
             }
         }
+
+        // Tenta mover no eixo X 
+        if (moveX != 0) {
+            this.direcao       = moveX < 0 ? 'e' : 'd';
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) {
+                x += moveX * velocidade * Time.deltaTime;
+                if (Math.abs(dx) > Math.abs(dy)) direcaoDesvio = 'p';
+            } else {
+                bloqueadoX = true;
+            }
+        }
+
+        // IF bateu em alguma parede, escolhe aleatoriamente um lado 
+        if ((bloqueadoY || bloqueadoX) && timerDesvio <= 0) {
+            if (bloqueadoY && !bloqueadoX) {
+                // Parede horizontal
+                direcaoDesvio = Math.random() < 0.5 ? 'e' : 'd';
+            } else if (bloqueadoX && !bloqueadoY) {
+                // Parede vertical
+                direcaoDesvio = Math.random() < 0.5 ? 'c' : 'b';
+            } else {
+                //escolhe qualquer direção livre
+                direcaoDesvio = Math.random() < 0.5 ? (Math.random() < 0.5 ? 'e' : 'd')
+                                                      : (Math.random() < 0.5 ? 'c' : 'b');
+            }
+            timerDesvio = DURACAO_DESVIO_MIN + Math.random() * (DURACAO_DESVIO_MAX - DURACAO_DESVIO_MIN);
+        }
+        
+        if (timerDesvio > 0 && direcaoDesvio != 'p') {
+            this.direcao       = direcaoDesvio;
+            this.colisaoLigada = false;
+            Collision.checarTile(this, tileM);
+            if (!colisaoLigada) {
+                switch (direcaoDesvio) {
+                    case 'e': x -= velocidade * Time.deltaTime; break;
+                    case 'd': x += velocidade * Time.deltaTime; break;
+                    case 'c': y -= velocidade * Time.deltaTime; break;
+                    case 'b': y += velocidade * Time.deltaTime; break;
+                }
+            } else {
+                //força movimento no próximo frame
+                timerDesvio = 0;
+            }
+        }
+
+        // Direção visual aponta para o player
+        direcao = (Math.abs(dx) > Math.abs(dy)) ? (dx < 0 ? 'e' : 'd') : (dy < 0 ? 'c' : 'b');
+    }
+
+    @Override
+    void draw(Graphics2D g2v) {
+        // Laranja-avermelhado para diferenciar dos outros dois
+        g2v.setColor(new Color(220, 120, 30));
+        g2v.fillRect((int) x, (int) y, largura, altura);
+    }
+}
+
+// A* PATHFINDING
+class AStar {
+
+    static List<int[]> encontrarCaminho(TileManager tileM, int startX, int startY, int endX, int endY) {
+        int cols = tileM.maxMundoCol;
+        int lins = tileM.maxMundoLin;
+
+        startX = Math.max(0, Math.min(startX, cols - 1));
+        startY = Math.max(0, Math.min(startY, lins - 1));
+        endX   = Math.max(0, Math.min(endX,   cols - 1));
+        endY   = Math.max(0, Math.min(endY,   lins - 1));
+
+        if (tileM.mapaMatriz[endX][endY] == 1) {
+            int[] v = encontrarVizinhoLivre(tileM, endX, endY);
+            if (v == null) return new ArrayList<>();
+            endX = v[0]; endY = v[1];
+        }
+        if (startX == endX && startY == endY) return new ArrayList<>();
+
+        double[][] gCost  = new double[cols][lins];
+        int[][]    parentX = new int[cols][lins];
+        int[][]    parentY = new int[cols][lins];
+        boolean[][] closed = new boolean[cols][lins];
+
+        for (double[] row : gCost)   Arrays.fill(row, Double.MAX_VALUE);
+        for (int[]    row : parentX) Arrays.fill(row, -1);
+        for (int[]    row : parentY) Arrays.fill(row, -1);
+
+        gCost[startX][startY] = 0;
+        PriorityQueue<double[]> abertos = new PriorityQueue<>(Comparator.comparingDouble(a -> a[0]));
+        abertos.add(new double[]{ heuristica(startX, startY, endX, endY), startX, startY });
+
+        int[] dCol = { 0, 0, -1, 1 };
+        int[] dLin = { -1, 1,  0, 0 };
+
+        while (!abertos.isEmpty()) {
+            double[] atual = abertos.poll();
+            int cx = (int) atual[1];
+            int cy = (int) atual[2];
+            if (closed[cx][cy]) continue;
+            closed[cx][cy] = true;
+
+            if (cx == endX && cy == endY) {
+                List<int[]> cam = new ArrayList<>();
+                int rx = cx, ry = cy;
+                while (!(rx == startX && ry == startY)) {
+                    cam.add(0, new int[]{ rx, ry });
+                    int px = parentX[rx][ry], py = parentY[rx][ry];
+                    rx = px; ry = py;
+                }
+                return cam;
+            }
+
+            for (int i = 0; i < 4; i++) {
+                int nx = cx + dCol[i];
+                int ny = cy + dLin[i];
+                if (nx < 0 || nx >= cols || ny < 0 || ny >= lins) continue;
+                if (closed[nx][ny] || tileM.mapaMatriz[nx][ny] == 1) continue;
+                double novoG = gCost[cx][cy] + 1;
+                if (novoG < gCost[nx][ny]) {
+                    gCost[nx][ny]   = novoG;
+                    parentX[nx][ny] = cx;
+                    parentY[nx][ny] = cy;
+                    abertos.add(new double[]{ novoG + heuristica(nx, ny, endX, endY), nx, ny });
+                }
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    private static double heuristica(int x1, int y1, int x2, int y2) {
+        return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+
+    private static int[] encontrarVizinhoLivre(TileManager tileM, int col, int lin) {
+        int[] dC = { 0, 0, -1, 1 };
+        int[] dL = { -1, 1, 0, 0 };
+        for (int i = 0; i < 4; i++) {
+            int nc = col + dC[i], nl = lin + dL[i];
+            if (nc >= 0 && nc < tileM.maxMundoCol && nl >= 0 && nl < tileM.maxMundoLin)
+                if (tileM.mapaMatriz[nc][nl] != 1) return new int[]{ nc, nl };
+        }
+        return null;
+    }
+}
+
+
+//algoritimo
+class LineOfSight {
+
+    
+     // Retorna uma matriz [col][lin] com true onde o player enxerga.
+    static boolean[][] calcular(TileManager tileM, double origemX, double origemY) {
+        int cols = tileM.maxMundoCol;
+        int lins = tileM.maxMundoLin;
+        boolean[][] visivel = new boolean[cols][lins];
+
+        int oCol = Math.max(0, Math.min((int)(origemX / Config.TAMANHO_TILE), cols - 1));
+        int oLin = Math.max(0, Math.min((int)(origemY / Config.TAMANHO_TILE), lins - 1));
+
+        for (int col = 0; col < cols; col++) {
+            for (int lin = 0; lin < lins; lin++) {
+                visivel[col][lin] = linhaLivre(tileM, oCol, oLin, col, lin);
+            }
+        }
+
+        return visivel;
+    }
+
+    static boolean linhaLivre(TileManager tileM, int x0, int y0, int x1, int y1) {
+        int dx = Math.abs(x1 - x0);
+        int dy = Math.abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+
+        int cx = x0, cy = y0;
+
+        while (true) {
+            if (cx == x1 && cy == y1) return true;
+
+            // Tile intermediário (não é a origem) — bloqueia se for parede
+            if (!(cx == x0 && cy == y0) && tileM.mapaMatriz[cx][cy] == 1) return false;
+
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; cx += sx; }
+            if (e2 <  dx) { err += dx; cy += sy; }
+        }
+    }
+}

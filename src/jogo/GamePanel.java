@@ -6,6 +6,9 @@ import java.awt.Dimension;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -13,10 +16,63 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import menus.menuPause;
 
 public class GamePanel extends JPanel implements Runnable {
+
+    // =========================================================
+    // CONFIGURAÇÕES GLOBAIS (Teclas e Sombras)
+    // =========================================================
+    public static class GameConfig {
+        public static boolean sombraAtivada = false; // Desativada por padrão
+
+        public static int teclaCima     = KeyEvent.VK_W;
+        public static int teclaBaixo    = KeyEvent.VK_S;
+        public static int teclaEsquerda = KeyEvent.VK_A;
+        public static int teclaDireita  = KeyEvent.VK_D;
+        public static int teclaPause    = KeyEvent.VK_ESCAPE;
+        public static int teclaSombra   = KeyEvent.VK_M; // Tecla para o toggle de luz
+
+        public static final int teclaCima2     = KeyEvent.VK_UP;
+        public static final int teclaBaixo2    = KeyEvent.VK_DOWN;
+        public static final int teclaEsquerda2 = KeyEvent.VK_LEFT;
+        public static final int teclaDireita2  = KeyEvent.VK_RIGHT;
+
+        public static final String[] NOMES_ACOES = {
+            "Mover: Cima", "Mover: Baixo", "Mover: Esquerda", "Mover: Direita", "Pause", "Luz/Sombra"
+        };
+
+        public static int[] getTeclasPrimarias() {
+            return new int[]{ teclaCima, teclaBaixo, teclaEsquerda, teclaDireita, teclaPause, teclaSombra };
+        }
+
+        public static void setTecla(int indice, int keyCode) {
+            switch (indice) {
+                case 0 -> teclaCima     = keyCode;
+                case 1 -> teclaBaixo    = keyCode;
+                case 2 -> teclaEsquerda = keyCode;
+                case 3 -> teclaDireita  = keyCode;
+                case 4 -> teclaPause    = keyCode;
+                case 5 -> teclaSombra   = keyCode;
+            }
+        }
+
+        public static void resetarTeclas() {
+            teclaCima     = KeyEvent.VK_W;
+            teclaBaixo    = KeyEvent.VK_S;
+            teclaEsquerda = KeyEvent.VK_A;
+            teclaDireita  = KeyEvent.VK_D;
+            teclaPause    = KeyEvent.VK_ESCAPE;
+            teclaSombra   = KeyEvent.VK_M;
+            sombraAtivada = false;
+        }
+    }
+    // =========================================================
 
     private Thread gameThread;
     private volatile boolean rodando = false; 
@@ -31,12 +87,12 @@ public class GamePanel extends JPanel implements Runnable {
         this.setDoubleBuffered(true);
         this.setFocusable(true);
         
-        // CORREÇÃO 1: Inicializar o menu para ele não ser nulo
         this.instancia_menu_pause = new menuPause(this); 
     }
     
     public void pausar() {
         pausado = true;
+        //instancia_menu_pause.atualizarAtalhoPause(); 
         instancia_menu_pause.setVisible(true);
         instancia_menu_pause.toFront();
         instancia_menu_pause.requestFocus();
@@ -45,6 +101,7 @@ public class GamePanel extends JPanel implements Runnable {
     public void despausar() {
         pausado = false;
         instancia_menu_pause.setVisible(false);
+        this.requestFocus(); 
     }
     
     public boolean estaPausado() {
@@ -70,22 +127,16 @@ public class GamePanel extends JPanel implements Runnable {
         while (rodando) {
             Time.update();
 
-            // LÓGICA DE PAUSE: Verifica se a tecla foi pressionada uma única vez
             if (Input.foiPressionadoPause()) {
-                if (pausado) {
-                    despausar();
-                } else {
-                    pausar();
-                }
+                if (pausado) despausar();
+                else pausar();
             }
 
-            // O mundo só atualiza a física/movimento se NÃO estiver pausado
             if (!pausado && mundo != null) {
                 mundo.update();
             }
             
             repaint();
-
             Time.sync();
         }
     }
@@ -95,25 +146,23 @@ public class GamePanel extends JPanel implements Runnable {
         super.paintComponent(g);
         Graphics2D g2v = (Graphics2D) g;
 
+        // O Mundo agora desenha tudo: Chão, Entidades e as Sombras Poligonais!
         if (mundo != null) {
             mundo.draw(g2v);
         }
 
         g2v.setColor(Color.WHITE);
         g2v.drawString("FPS: " + Time.fps, 10, 20);
+        g2v.drawString("Sombras [M]: " + (GameConfig.sombraAtivada ? "ON" : "OFF"), 10, 40);
 
-        // DESENHO DO PAUSE: Renderiza uma tela semi-transparente por cima de tudo
         if (pausado) {
-            // Cria um retângulo preto com 150 de transparência (Alpha de 0 a 255)
             g2v.setColor(new Color(0, 0, 0, 150)); 
             g2v.fillRect(0, 0, Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL);
 
-            // Desenha o texto "PAUSADO" bem no centro da tela
             g2v.setColor(Color.WHITE);
             g2v.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 50));
             String texto = "PAUSADO";
             
-            // Calcula a largura do texto para centralizá-lo matematicamente
             int larguraTexto = g2v.getFontMetrics().stringWidth(texto);
             int x = (Config.LARGURA_VIRTUAL - larguraTexto) / 2;
             int y = Config.ALTURA_VIRTUAL / 2;
@@ -125,7 +174,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     public static void main(String[] args) {
-
         JFrame janela = new JFrame();
         janela.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         janela.setResizable(false);
@@ -152,23 +200,106 @@ public class GamePanel extends JPanel implements Runnable {
     }
 }
 
+// ======================================================================
+// MOTOR DE SHADOW CASTING (RAYCASTING GEOMÉTRICO 2D)
+// ======================================================================
+class ShadowCaster {
+
+    static class PontoAngulo {
+        float x, y, angulo;
+        PontoAngulo(float x, float y, float angulo) {
+            this.x = x; this.y = y; this.angulo = angulo;
+        }
+    }
+
+    public static GeneralPath calcularPoligonoVisibilidade(float luzX, float luzY, List<Line2D.Float> paredes) {
+        List<PontoAngulo> pontosDeIntersecao = new ArrayList<>();
+
+        // Coleta todos os pontos únicos (quinas) do mapa
+        List<Point2D.Float> cantos = new ArrayList<>();
+        for (Line2D.Float parede : paredes) {
+            cantos.add(new Point2D.Float(parede.x1, parede.y1));
+            cantos.add(new Point2D.Float(parede.x2, parede.y2));
+        }
+
+        // Lança 3 raios para cada canto: Exato, Exato-0.0001, Exato+0.0001
+        for (Point2D.Float canto : cantos) {
+            float anguloBase = (float) Math.atan2(canto.y - luzY, canto.x - luzX);
+            
+            float[] angulos = { anguloBase - 0.0001f, anguloBase, anguloBase + 0.0001f };
+
+            for (float angulo : angulos) {
+                float dx = (float) Math.cos(angulo);
+                float dy = (float) Math.sin(angulo);
+                float raioMax = 3000f; 
+
+                Point2D.Float pIntersecao = null;
+                float distMinima = Float.MAX_VALUE;
+
+                for (Line2D.Float parede : paredes) {
+                    Point2D.Float cruzamento = getIntersecao(
+                        luzX, luzY, luzX + dx * raioMax, luzY + dy * raioMax,
+                        parede.x1, parede.y1, parede.x2, parede.y2
+                    );
+
+                    if (cruzamento != null) {
+                        float dist = (float) cruzamento.distanceSq(luzX, luzY);
+                        if (dist < distMinima) {
+                            distMinima = dist;
+                            pIntersecao = cruzamento;
+                        }
+                    }
+                }
+
+                if (pIntersecao != null) {
+                    pontosDeIntersecao.add(new PontoAngulo(pIntersecao.x, pIntersecao.y, angulo));
+                }
+            }
+        }
+
+        Collections.sort(pontosDeIntersecao, Comparator.comparingDouble(p -> p.angulo));
+
+        GeneralPath poly = new GeneralPath();
+        if (!pontosDeIntersecao.isEmpty()) {
+            poly.moveTo(pontosDeIntersecao.get(0).x, pontosDeIntersecao.get(0).y);
+            for (int i = 1; i < pontosDeIntersecao.size(); i++) {
+                poly.lineTo(pontosDeIntersecao.get(i).x, pontosDeIntersecao.get(i).y);
+            }
+            poly.closePath();
+        }
+
+        return poly;
+    }
+
+    private static Point2D.Float getIntersecao(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy) {
+        float divisor = (ax - bx) * (cy - dy) - (ay - by) * (cx - dx);
+        if (divisor == 0) return null; 
+
+        float t = ((ax - cx) * (cy - dy) - (ay - cy) * (cx - dx)) / divisor;
+        float u = -((ax - bx) * (ay - cy) - (ay - by) * (ax - cx)) / divisor;
+
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+            float pX = ax + t * (bx - ax);
+            float pY = ay + t * (by - ay);
+            return new Point2D.Float(pX, pY);
+        }
+        return null;
+    }
+}
+// ======================================================================
 
 class Config {
-    static final int TODOS = 120;
+    static final int TODOS = 60;
     static final int LARGURA_VIRTUAL = 800;
     static final int ALTURA_VIRTUAL = 600;
     static final int FPS = TODOS;
     static final String TITULO = "Apenas um Jogo";
-    static final int TAMANHO_TILE = 48; // Tamanho padrão dos blocos do mapa (48x48 pixels)
+    static final int TAMANHO_TILE = 48; 
 }
 
-
-/** Delta Time, FPS*/
 class Time {
-
     static double deltaTime;
     static int fps;
-
     private static long lastTime = System.nanoTime();
     private static long fpsTimer = System.currentTimeMillis();
     private static int frameCount = 0;
@@ -178,10 +309,7 @@ class Time {
         deltaTime = (currentTime - lastTime) / 1_000_000_000.0;
         lastTime = currentTime;
 
-        // Limita o Delta Time máximo para evitar saltos grandes (stuttering)
-        if (deltaTime > 0.1) {
-            deltaTime = 0.1;
-        }
+        if (deltaTime > 0.1) deltaTime = 0.1;
 
         frameCount++;
         if (System.currentTimeMillis() - fpsTimer > 1000) {
@@ -198,61 +326,36 @@ class Time {
         long sleepTime = visualTime - now;
 
         try {
-            if (sleepTime > 0) {
-                // Converte nanossegundos para milissegundos e nanossegundos restantes
-                Thread.sleep(sleepTime / 1_000_000, (int) (sleepTime % 1_000_000));
-            } else {
-
-                // Isto impede que o loop asfixie a EDT (a thread que pinta o ecrã)
-                Thread.sleep(1);
-            }
+            if (sleepTime > 0) Thread.sleep(sleepTime / 1_000_000, (int) (sleepTime % 1_000_000));
+            else Thread.sleep(1);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
 }
 
-   
-
-/** A "janela" que mostra parte do mundo na tela. */
 class Camera {
-
-    int x;
-    int y;
-
-    private final int larguraTela;
-    private final int alturaTela;
+    int x, y;
+    private final int larguraTela, alturaTela;
 
     Camera(int larguraTela, int alturaTela) {
         this.larguraTela = larguraTela;
         this.alturaTela = alturaTela;
     }
 
-    /** Centraliza a câmera no alvo e trava nas bordas do mapa. */
-    void focarNoAlvo(int alvoX, int alvoY, int alvoLargura, int alvoAltura,
-                      int larguraMaximaMapa, int alturaMaximaMapa) {
-
+    void focarNoAlvo(int alvoX, int alvoY, int alvoLargura, int alvoAltura, int larguraMaximaMapa, int alturaMaximaMapa) {
         this.x = alvoX + (alvoLargura / 2) - (larguraTela / 2);
         this.y = alvoY + (alvoAltura / 2) - (alturaTela / 2);
-
-        // Usando a API Math do Java em vez do método limitar()
-        /* temporariamente desabilitado
-        this.x = Math.max(0, Math.min(this.x, larguraMaximaMapa - larguraTela));
-        this.y = Math.max(0, Math.min(this.y, alturaMaximaMapa - alturaTela));
-        */
     }
 }
 
-/** Fachada estática de input*/
 class Input {
-
     private static KeyHandler teclado;
     private static MouseHandler mouse;
 
     static void inicializar(GamePanel gamePanel) {
         teclado = new KeyHandler();
         mouse = new MouseHandler();
-
         gamePanel.addKeyListener(teclado);
         gamePanel.addMouseListener(mouse);
         gamePanel.addMouseMotionListener(mouse);
@@ -265,83 +368,68 @@ class Input {
     
     static boolean foiPressionadoPause() {
         if (teclado.pausePressed && !teclado.pauseTratado) {
-            teclado.pauseTratado = true; // Trava a tecla
+            teclado.pauseTratado = true;
             return true;
         }
         return false;
     }
     
     static int getMouseX() { return MouseHandler.mouseX; }
-    // ...
     static int getMouseY() { return MouseHandler.mouseY; }
     static boolean esquerdoClicado() { return MouseHandler.cliqueEsquerdoPressed; }
 
     private static class KeyHandler implements KeyListener {
-
         boolean upPressed, downPressed, leftPressed, rightPressed;
-        boolean confirmPressed; 
-        boolean cancelPressed;  
-        boolean menuPressed;    
-        boolean pausePressed;
+        boolean confirmPressed, cancelPressed, menuPressed;
         
-        // NOVA VARIÁVEL: A trava do botão
+        boolean pausePressed;
         boolean pauseTratado = false;   
+        
+        boolean sombraTratado = false; // Lida com o toggle do 'M'
 
-        @Override
-        public void keyTyped(KeyEvent e) {}
+        @Override public void keyTyped(KeyEvent e) {}
 
-        @Override
-        public void keyPressed(KeyEvent e) {
-            atualizarTeclas(e.getKeyCode(), true);
-        }
-
-        @Override
-        public void keyReleased(KeyEvent e) {
-            atualizarTeclas(e.getKeyCode(), false);
-        }
+        @Override public void keyPressed(KeyEvent e) { atualizarTeclas(e.getKeyCode(), true); }
+        @Override public void keyReleased(KeyEvent e) { atualizarTeclas(e.getKeyCode(), false); }
 
         private void atualizarTeclas(int code, boolean pressionado) {
-            switch (code) {
-                case KeyEvent.VK_UP, KeyEvent.VK_W -> upPressed = pressionado;
-                case KeyEvent.VK_DOWN, KeyEvent.VK_S -> downPressed = pressionado;
-                case KeyEvent.VK_LEFT, KeyEvent.VK_A -> leftPressed = pressionado;
-                case KeyEvent.VK_RIGHT, KeyEvent.VK_D -> rightPressed = pressionado;
-                case KeyEvent.VK_Z, KeyEvent.VK_ENTER -> confirmPressed = pressionado;
-                case KeyEvent.VK_X, KeyEvent.VK_SHIFT -> cancelPressed = pressionado;
-                case KeyEvent.VK_C, KeyEvent.VK_CONTROL -> menuPressed = pressionado;
-                case KeyEvent.VK_ESCAPE -> {
-                    pausePressed = pressionado;
-                    // Se o jogador soltou a tecla, destrava para o próximo clique
-                    if (!pressionado) {
-                        pauseTratado = false;
-                    }
+            if (code == GamePanel.GameConfig.teclaCima || code == GamePanel.GameConfig.teclaCima2) {
+                upPressed = pressionado;
+            } else if (code == GamePanel.GameConfig.teclaBaixo || code == GamePanel.GameConfig.teclaBaixo2) {
+                downPressed = pressionado;
+            } else if (code == GamePanel.GameConfig.teclaEsquerda || code == GamePanel.GameConfig.teclaEsquerda2) {
+                leftPressed = pressionado;
+            } else if (code == GamePanel.GameConfig.teclaDireita || code == GamePanel.GameConfig.teclaDireita2) {
+                rightPressed = pressionado;
+            } else if (code == GamePanel.GameConfig.teclaPause) {
+                pausePressed = pressionado;
+                if (!pressionado) pauseTratado = false;
+            
+            // TRATAMENTO DA TECLA DE SOMBRA (Toggle)
+            } else if (code == GamePanel.GameConfig.teclaSombra) {
+                if (pressionado && !sombraTratado) {
+                    GamePanel.GameConfig.sombraAtivada = !GamePanel.GameConfig.sombraAtivada;
+                    sombraTratado = true;
+                } else if (!pressionado) {
+                    sombraTratado = false;
+                }
+            } else {
+                switch (code) {
+                    case KeyEvent.VK_Z, KeyEvent.VK_ENTER -> confirmPressed = pressionado;
+                    case KeyEvent.VK_X, KeyEvent.VK_SHIFT -> cancelPressed = pressionado;
+                    case KeyEvent.VK_C, KeyEvent.VK_CONTROL -> menuPressed = pressionado;
                 }
             }
         }
     }
 
     private static class MouseHandler implements MouseListener, MouseMotionListener {
+        static int mouseX, mouseY;
+        static boolean cliqueEsquerdoPressed, cliqueDireitoPressed;
 
-        static int mouseX;
-        static int mouseY;
-        static boolean cliqueEsquerdoPressed;
-        static boolean cliqueDireitoPressed;
-
-        @Override
-        public void mouseMoved(MouseEvent e) {
-            mouseX = e.getX();
-            mouseY = e.getY();
-        }
-
-        @Override
-        public void mousePressed(MouseEvent e) {
-            atualizarMouse(e.getButton(), true);
-        }
-
-        @Override
-        public void mouseReleased(MouseEvent e) {
-            atualizarMouse(e.getButton(), false);
-        }
+        @Override public void mouseMoved(MouseEvent e) { mouseX = e.getX(); mouseY = e.getY(); }
+        @Override public void mousePressed(MouseEvent e) { atualizarMouse(e.getButton(), true); }
+        @Override public void mouseReleased(MouseEvent e) { atualizarMouse(e.getButton(), false); }
         
         private void atualizarMouse(int button, boolean pressionado) {
             if (button == MouseEvent.BUTTON1) cliqueEsquerdoPressed = pressionado;
