@@ -25,18 +25,13 @@ import menus.menuPause;
 
 public class GamePanel extends JPanel implements Runnable {
 
-    // =========================================================
-    // CONFIGURAÇÕES GLOBAIS (Teclas e Sombras)
-    // =========================================================
     public static class GameConfig {
-        public static boolean sombraAtivada = false; // Desativada por padrão
 
         public static int teclaCima     = KeyEvent.VK_W;
         public static int teclaBaixo    = KeyEvent.VK_S;
         public static int teclaEsquerda = KeyEvent.VK_A;
         public static int teclaDireita  = KeyEvent.VK_D;
         public static int teclaPause    = KeyEvent.VK_ESCAPE;
-        public static int teclaSombra   = KeyEvent.VK_M; // Tecla para o toggle de luz
 
         public static final int teclaCima2     = KeyEvent.VK_UP;
         public static final int teclaBaixo2    = KeyEvent.VK_DOWN;
@@ -44,11 +39,11 @@ public class GamePanel extends JPanel implements Runnable {
         public static final int teclaDireita2  = KeyEvent.VK_RIGHT;
 
         public static final String[] NOMES_ACOES = {
-            "Mover: Cima", "Mover: Baixo", "Mover: Esquerda", "Mover: Direita", "Pause", "Luz/Sombra"
+            "Mover: Cima", "Mover: Baixo", "Mover: Esquerda", "Mover: Direita", "Pause"
         };
 
         public static int[] getTeclasPrimarias() {
-            return new int[]{ teclaCima, teclaBaixo, teclaEsquerda, teclaDireita, teclaPause, teclaSombra };
+            return new int[]{ teclaCima, teclaBaixo, teclaEsquerda, teclaDireita, teclaPause};
         }
 
         public static void setTecla(int indice, int keyCode) {
@@ -58,7 +53,6 @@ public class GamePanel extends JPanel implements Runnable {
                 case 2 -> teclaEsquerda = keyCode;
                 case 3 -> teclaDireita  = keyCode;
                 case 4 -> teclaPause    = keyCode;
-                case 5 -> teclaSombra   = keyCode;
             }
         }
 
@@ -68,8 +62,6 @@ public class GamePanel extends JPanel implements Runnable {
             teclaEsquerda = KeyEvent.VK_A;
             teclaDireita  = KeyEvent.VK_D;
             teclaPause    = KeyEvent.VK_ESCAPE;
-            teclaSombra   = KeyEvent.VK_M;
-            sombraAtivada = false;
         }
     }
     // =========================================================
@@ -153,7 +145,6 @@ public class GamePanel extends JPanel implements Runnable {
 
         g2v.setColor(Color.WHITE);
         g2v.drawString("FPS: " + Time.fps, 10, 20);
-        g2v.drawString("Sombras [M]: " + (GameConfig.sombraAtivada ? "ON" : "OFF"), 10, 40);
 
         if (pausado) {
             g2v.setColor(new Color(0, 0, 0, 150)); 
@@ -199,94 +190,6 @@ public class GamePanel extends JPanel implements Runnable {
         gamePanel.start();
     }
 }
-
-// ======================================================================
-// MOTOR DE SHADOW CASTING (RAYCASTING GEOMÉTRICO 2D)
-// ======================================================================
-class ShadowCaster {
-
-    static class PontoAngulo {
-        float x, y, angulo;
-        PontoAngulo(float x, float y, float angulo) {
-            this.x = x; this.y = y; this.angulo = angulo;
-        }
-    }
-
-    public static GeneralPath calcularPoligonoVisibilidade(float luzX, float luzY, List<Line2D.Float> paredes) {
-        List<PontoAngulo> pontosDeIntersecao = new ArrayList<>();
-
-        // Coleta todos os pontos únicos (quinas) do mapa
-        List<Point2D.Float> cantos = new ArrayList<>();
-        for (Line2D.Float parede : paredes) {
-            cantos.add(new Point2D.Float(parede.x1, parede.y1));
-            cantos.add(new Point2D.Float(parede.x2, parede.y2));
-        }
-
-        // Lança 3 raios para cada canto: Exato, Exato-0.0001, Exato+0.0001
-        for (Point2D.Float canto : cantos) {
-            float anguloBase = (float) Math.atan2(canto.y - luzY, canto.x - luzX);
-            
-            float[] angulos = { anguloBase - 0.0001f, anguloBase, anguloBase + 0.0001f };
-
-            for (float angulo : angulos) {
-                float dx = (float) Math.cos(angulo);
-                float dy = (float) Math.sin(angulo);
-                float raioMax = 3000f; 
-
-                Point2D.Float pIntersecao = null;
-                float distMinima = Float.MAX_VALUE;
-
-                for (Line2D.Float parede : paredes) {
-                    Point2D.Float cruzamento = getIntersecao(
-                        luzX, luzY, luzX + dx * raioMax, luzY + dy * raioMax,
-                        parede.x1, parede.y1, parede.x2, parede.y2
-                    );
-
-                    if (cruzamento != null) {
-                        float dist = (float) cruzamento.distanceSq(luzX, luzY);
-                        if (dist < distMinima) {
-                            distMinima = dist;
-                            pIntersecao = cruzamento;
-                        }
-                    }
-                }
-
-                if (pIntersecao != null) {
-                    pontosDeIntersecao.add(new PontoAngulo(pIntersecao.x, pIntersecao.y, angulo));
-                }
-            }
-        }
-
-        Collections.sort(pontosDeIntersecao, Comparator.comparingDouble(p -> p.angulo));
-
-        GeneralPath poly = new GeneralPath();
-        if (!pontosDeIntersecao.isEmpty()) {
-            poly.moveTo(pontosDeIntersecao.get(0).x, pontosDeIntersecao.get(0).y);
-            for (int i = 1; i < pontosDeIntersecao.size(); i++) {
-                poly.lineTo(pontosDeIntersecao.get(i).x, pontosDeIntersecao.get(i).y);
-            }
-            poly.closePath();
-        }
-
-        return poly;
-    }
-
-    private static Point2D.Float getIntersecao(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy) {
-        float divisor = (ax - bx) * (cy - dy) - (ay - by) * (cx - dx);
-        if (divisor == 0) return null; 
-
-        float t = ((ax - cx) * (cy - dy) - (ay - cy) * (cx - dx)) / divisor;
-        float u = -((ax - bx) * (ay - cy) - (ay - by) * (ax - cx)) / divisor;
-
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-            float pX = ax + t * (bx - ax);
-            float pY = ay + t * (by - ay);
-            return new Point2D.Float(pX, pY);
-        }
-        return null;
-    }
-}
-// ======================================================================
 
 class Config {
     static final int TODOS = 60;
@@ -406,14 +309,14 @@ class Input {
                 if (!pressionado) pauseTratado = false;
             
             // TRATAMENTO DA TECLA DE SOMBRA (Toggle)
-            } else if (code == GamePanel.GameConfig.teclaSombra) {
+            }/* else if (code == GamePanel.GameConfig.teclaSombra) {
                 if (pressionado && !sombraTratado) {
                     GamePanel.GameConfig.sombraAtivada = !GamePanel.GameConfig.sombraAtivada;
                     sombraTratado = true;
                 } else if (!pressionado) {
                     sombraTratado = false;
                 }
-            } else {
+            }*/ else {
                 switch (code) {
                     case KeyEvent.VK_Z, KeyEvent.VK_ENTER -> confirmPressed = pressionado;
                     case KeyEvent.VK_X, KeyEvent.VK_SHIFT -> cancelPressed = pressionado;

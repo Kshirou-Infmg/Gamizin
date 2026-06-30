@@ -25,7 +25,6 @@ class World {
 
     private TileManager tileM;
     private Player      jogador;
-    private Follower    seguidor;    // IA inteligente (A*)      — verde
     private Perseguidor perseguidor; // IA burra (greedy)        — laranja
     private Camera      camera;
 
@@ -43,7 +42,6 @@ class World {
         camera = new Camera(Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL);
 
         jogador     = new Player(200, 200, tileM);
-        seguidor    = new Follower(400, 300, tileM, jogador);
         perseguidor = new Perseguidor(100, 400, tileM, jogador); // posição diferente para variar
     }
 
@@ -58,7 +56,7 @@ class World {
             );
         }
 
-        if (seguidor    != null) seguidor.update();
+        //if (seguidor    != null) seguidor.update();
         if (perseguidor != null) perseguidor.update();
     }
 
@@ -71,86 +69,12 @@ class World {
             java.awt.geom.AffineTransform transformacaoOriginal = g2v.getTransform();
             g2v.translate(-camera.x, -camera.y);
 
-            if (seguidor    != null) seguidor.draw(g2v);
             if (perseguidor != null) perseguidor.draw(g2v);
 
             jogador.draw(g2v); // player por cima dos inimigos
 
             g2v.setTransform(transformacaoOriginal);
         }
-
-
-        // lab1
-        if (GamePanel.GameConfig.sombraAtivada && jogador != null) {
-            desenharSombraPoligono(g2v);
-        }
-    }
-    
-    // meu laboratorio de testes
-    private void desenharSombraPoligono(Graphics2D g2v) {
-        
-        // Pega o centro exato do Player NA TELA
-        float luzX = (float) (jogador.x + jogador.largura / 2.0 - camera.x);
-        float luzY = (float) (jogador.y + jogador.altura  / 2.0 - camera.y);
-
-        List<Line2D.Float> paredes = new ArrayList<>();
-
-        //Bordas da tela 
-        paredes.add(new Line2D.Float(0, 0, Config.LARGURA_VIRTUAL, 0));
-        paredes.add(new Line2D.Float(Config.LARGURA_VIRTUAL, 0, Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL));
-        paredes.add(new Line2D.Float(Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL, 0, Config.ALTURA_VIRTUAL));
-        paredes.add(new Line2D.Float(0, Config.ALTURA_VIRTUAL, 0, 0));
-
-        int cols = tileM.maxMundoCol;
-        int lins = tileM.maxMundoLin;
-
-        //Varre o mapa em busca de blocos sólidos para formar as paredes
-        for (int col = 0; col < cols; col++) {
-            for (int lin = 0; lin < lins; lin++) {
-                int tileNum = tileM.mapaMatriz[col][lin];
-                
-                // Se o bloco for colidível, vamos checar seus vizinhos!
-                if (tileM.tiposDeTile[tileNum].colidivel) {
-                    float px = col * Config.TAMANHO_TILE - camera.x;
-                    float py = lin * Config.TAMANHO_TILE - camera.y;
-
-                    // Otimização: ignora blocos que estão muito longe fora da tela
-                    if (px + Config.TAMANHO_TILE < -100 || px > Config.LARGURA_VIRTUAL + 100) continue;
-                    if (py + Config.TAMANHO_TILE < -100 || py > Config.ALTURA_VIRTUAL + 100)  continue;
-
-
-                    // Checa CIMA
-                    if (lin == 0 || !tileM.tiposDeTile[tileM.mapaMatriz[col][lin-1]].colidivel) {
-                        paredes.add(new Line2D.Float(px, py, px + Config.TAMANHO_TILE, py));
-                    }
-                    // Checa BAIXO
-                    if (lin == lins - 1 || !tileM.tiposDeTile[tileM.mapaMatriz[col][lin+1]].colidivel) {
-                        paredes.add(new Line2D.Float(px, py + Config.TAMANHO_TILE, px + Config.TAMANHO_TILE, py + Config.TAMANHO_TILE));
-                    }
-                    // ChecaESQUERDA
-                    if (col == 0 || !tileM.tiposDeTile[tileM.mapaMatriz[col-1][lin]].colidivel) {
-                        paredes.add(new Line2D.Float(px, py, px, py + Config.TAMANHO_TILE));
-                    }
-                    // Checa DIREITA
-                    if (col == cols - 1 || !tileM.tiposDeTile[tileM.mapaMatriz[col+1][lin]].colidivel) {
-                        paredes.add(new Line2D.Float(px + Config.TAMANHO_TILE, py, px + Config.TAMANHO_TILE, py + Config.TAMANHO_TILE));
-                    }
-                }
-            }
-        }
-
-        GeneralPath poligonoLuz = ShadowCaster.calcularPoligonoVisibilidade(luzX, luzY, paredes);
-
-        Area escuridao = new Area(new java.awt.Rectangle(0, 0, Config.LARGURA_VIRTUAL, Config.ALTURA_VIRTUAL));
-
-        if (poligonoLuz != null) {
-            escuridao.subtract(new Area(poligonoLuz));
-        }
-        g2v.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2v.setColor(new Color(0, 0, 0, 240)); // 240 = Muito escuro (quase breu)
-        g2v.fill(escuridao);
-
-        g2v.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
     }
 }
 

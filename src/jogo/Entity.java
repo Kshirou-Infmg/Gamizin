@@ -81,135 +81,14 @@ class Player extends Entity {
     }
 }
 
-// FOLLOWER — IA INTELIGENTE com pathfinding A*
-class Follower extends Entity {
-
-    private Player alvo;
-    private TileManager tileM;
-
-    private List<int[]> caminho = new ArrayList<>();
-    private double timerRecalculo = 0;
-    private static final double INTERVALO_RECALCULO = 0.35;
-    private static final double LIMIAR_WAYPOINT    = Config.TAMANHO_TILE * 0.45;
-
-    private int alvoTileXAnterior = -1;
-    private int alvoTileYAnterior = -1;
-
-    public Follower(int x, int y, TileManager tileM, Player alvo) {
-        super(x, y, 48, 48, 140);
-        this.tileM = tileM;
-        this.alvo  = alvo;
-        this.hitbox = new Rectangle(6, 6, largura - 12, altura - 12);
-    }
-
-    @Override
-    void update() {
-        timerRecalculo -= Time.deltaTime;
-
-        int alvoTileX = (int)(alvo.x / Config.TAMANHO_TILE);
-        int alvoTileY = (int)(alvo.y / Config.TAMANHO_TILE);
-
-        boolean alvoMoveu = (alvoTileX != alvoTileXAnterior || alvoTileY != alvoTileYAnterior);
-        if (timerRecalculo <= 0 || alvoMoveu) {
-            int meuCentroX = (int)((this.x + hitbox.x + hitbox.width  / 2.0) / Config.TAMANHO_TILE);
-            int meuCentroY = (int)((this.y + hitbox.y + hitbox.height / 2.0) / Config.TAMANHO_TILE);
-            caminho = AStar.encontrarCaminho(tileM, meuCentroX, meuCentroY, alvoTileX, alvoTileY);
-            timerRecalculo    = INTERVALO_RECALCULO;
-            alvoTileXAnterior = alvoTileX;
-            alvoTileYAnterior = alvoTileY;
-        }
-
-        seguirCaminho();
-
-        double dx = alvo.x - this.x;
-        double dy = alvo.y - this.y;
-        direcao = (Math.abs(dx) > Math.abs(dy)) ? (dx < 0 ? 'e' : 'd') : (dy < 0 ? 'c' : 'b');
-    }
-
-    private void seguirCaminho() {
-        if (caminho == null || caminho.isEmpty()) { moverDireto(); return; }
-
-        while (!caminho.isEmpty()) {
-            int[] prox = caminho.get(0);
-            double wpX  = prox[0] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
-            double wpY  = prox[1] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
-            double meuX = this.x + largura / 2.0;
-            double meuY = this.y + altura  / 2.0;
-            if (Math.hypot(wpX - meuX, wpY - meuY) < LIMIAR_WAYPOINT) caminho.remove(0);
-            else break;
-        }
-        if (caminho.isEmpty()) return;
-
-        int[]  prox = caminho.get(0);
-        double wpX  = prox[0] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
-        double wpY  = prox[1] * Config.TAMANHO_TILE + Config.TAMANHO_TILE / 2.0;
-        double meuX = this.x + largura / 2.0;
-        double meuY = this.y + altura  / 2.0;
-        double dx   = wpX - meuX;
-        double dy   = wpY - meuY;
-        double dist = Math.hypot(dx, dy);
-        if (dist < 1) return;
-
-        double moveX = dx / dist;
-        double moveY = dy / dist;
-
-        if (moveY != 0) {
-            this.direcao = moveY < 0 ? 'c' : 'b';
-            this.colisaoLigada = false;
-            Collision.checarTile(this, tileM);
-            if (!colisaoLigada) y += moveY * velocidade * Time.deltaTime;
-        }
-        if (moveX != 0) {
-            this.direcao = moveX < 0 ? 'e' : 'd';
-            this.colisaoLigada = false;
-            Collision.checarTile(this, tileM);
-            if (!colisaoLigada) x += moveX * velocidade * Time.deltaTime;
-        }
-    }
-
-    private void moverDireto() {
-        double dx   = alvo.x - this.x;
-        double dy   = alvo.y - this.y;
-        double dist = Math.hypot(dx, dy);
-        if (dist <= 12) return;
-        double moveX = dx / dist, moveY = dy / dist;
-        if (moveY != 0) {
-            this.direcao = moveY < 0 ? 'c' : 'b';
-            this.colisaoLigada = false;
-            Collision.checarTile(this, tileM);
-            if (!colisaoLigada) y += moveY * velocidade * Time.deltaTime;
-        }
-        if (moveX != 0) {
-            this.direcao = moveX < 0 ? 'e' : 'd';
-            this.colisaoLigada = false;
-            Collision.checarTile(this, tileM);
-            if (!colisaoLigada) x += moveX * velocidade * Time.deltaTime;
-        }
-    }
-
-    @Override
-    void draw(Graphics2D g2v) {
-        g2v.setColor(new Color(50, 205, 50));
-        g2v.fillRect((int) x, (int) y, largura, altura);
-    }
-}
-
-
-// PERSEGUIDOR — IA BURRA (abordagem direta + desvio aleatório)
+// PERSEGUIDOR — Simplesmente vai em direção ao player
 class Perseguidor extends Entity {
 
     private Player alvo;
     private TileManager tileM;
 
-    private char direcaoDesvio = 'p';
-    private double timerDesvio  = 0;
-
-    // Tempo (em segundos) que mantém um desvio antes de tentar outro
-    private static final double DURACAO_DESVIO_MIN = 0.4;
-    private static final double DURACAO_DESVIO_MAX = 0.9;
-
     public Perseguidor(int x, int y, TileManager tileM, Player alvo) {
-        super(x, y, 48, 48, 105); // mais devagar que o Follower
+        super(x, y, 48, 48, 105);
         this.tileM = tileM;
         this.alvo  = alvo;
         this.hitbox = new Rectangle(6, 6, largura - 12, altura - 12);
@@ -217,8 +96,6 @@ class Perseguidor extends Entity {
 
     @Override
     void update() {
-        timerDesvio -= Time.deltaTime;
-
         double dx   = alvo.x - this.x;
         double dy   = alvo.y - this.y;
         double dist = Math.hypot(dx, dy);
@@ -226,10 +103,7 @@ class Perseguidor extends Entity {
 
         double moveX = dx / dist;
         double moveY = dy / dist;
-
-        boolean bloqueadoY = false;
-        boolean bloqueadoX = false;
-
+        
         // Tenta mover no eixo Y
         if (moveY != 0) {
             this.direcao       = moveY < 0 ? 'c' : 'b';
@@ -237,10 +111,6 @@ class Perseguidor extends Entity {
             Collision.checarTile(this, tileM);
             if (!colisaoLigada) {
                 y += moveY * velocidade * Time.deltaTime;
-                // Se o eixo principal ficou livre, pode resetar o desvio
-                if (Math.abs(dy) >= Math.abs(dx)) direcaoDesvio = 'p';
-            } else {
-                bloqueadoY = true;
             }
         }
 
@@ -251,46 +121,9 @@ class Perseguidor extends Entity {
             Collision.checarTile(this, tileM);
             if (!colisaoLigada) {
                 x += moveX * velocidade * Time.deltaTime;
-                if (Math.abs(dx) > Math.abs(dy)) direcaoDesvio = 'p';
-            } else {
-                bloqueadoX = true;
             }
-        }
-
-        // IF bateu em alguma parede, escolhe aleatoriamente um lado 
-        if ((bloqueadoY || bloqueadoX) && timerDesvio <= 0) {
-            if (bloqueadoY && !bloqueadoX) {
-                // Parede horizontal
-                direcaoDesvio = Math.random() < 0.5 ? 'e' : 'd';
-            } else if (bloqueadoX && !bloqueadoY) {
-                // Parede vertical
-                direcaoDesvio = Math.random() < 0.5 ? 'c' : 'b';
-            } else {
-                //escolhe qualquer direção livre
-                direcaoDesvio = Math.random() < 0.5 ? (Math.random() < 0.5 ? 'e' : 'd')
-                                                      : (Math.random() < 0.5 ? 'c' : 'b');
-            }
-            timerDesvio = DURACAO_DESVIO_MIN + Math.random() * (DURACAO_DESVIO_MAX - DURACAO_DESVIO_MIN);
         }
         
-        if (timerDesvio > 0 && direcaoDesvio != 'p') {
-            this.direcao       = direcaoDesvio;
-            this.colisaoLigada = false;
-            Collision.checarTile(this, tileM);
-            if (!colisaoLigada) {
-                switch (direcaoDesvio) {
-                    case 'e': x -= velocidade * Time.deltaTime; break;
-                    case 'd': x += velocidade * Time.deltaTime; break;
-                    case 'c': y -= velocidade * Time.deltaTime; break;
-                    case 'b': y += velocidade * Time.deltaTime; break;
-                }
-            } else {
-                //força movimento no próximo frame
-                timerDesvio = 0;
-            }
-        }
-
-        // Direção visual aponta para o player
         direcao = (Math.abs(dx) > Math.abs(dy)) ? (dx < 0 ? 'e' : 'd') : (dy < 0 ? 'c' : 'b');
     }
 
