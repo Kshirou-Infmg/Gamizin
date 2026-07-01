@@ -3,9 +3,11 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/World.java</file>
-            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/Entity.java</file>
-            <file>file:/home/kshirou/NetBeansProjects/2d%20Game%20Rpg%20Engine/src/jogo/GamePanel.java</file>
+            <file>file:/home/bogus/NetBeansProjects/Gamizin/src/jogo/Entity.java</file>
+            <file>file:/home/bogus/NetBeansProjects/Gamizin/src/jogo/World.java</file>
+            <file>file:/home/bogus/NetBeansProjects/Gamizin/src/jogo/GamePanel.java</file>
+            <file>file:/home/bogus/NetBeansProjects/Gamizin/src/maps/map1tst.txt</file>
+            <file>file:/home/bogus/NetBeansProjects/Gamizin/src/menus/menuPause.java</file>
         </group>
     </open-files>
 </project-private>

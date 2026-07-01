@@ -64,7 +64,6 @@ public class GamePanel extends JPanel implements Runnable {
             teclaPause    = KeyEvent.VK_ESCAPE;
         }
     }
-    // =========================================================
 
     private Thread gameThread;
     private volatile boolean rodando = false; 
